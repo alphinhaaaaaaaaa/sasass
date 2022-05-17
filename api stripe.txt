@@ -1,0 +1,284 @@
+<?php 
+include "connect.php";
+session_start();
+$id= $_SESSION['id'];
+$CheckOutItem = $_POST['CheckOutItem'];
+
+  
+   $sel2= mysqli_query($conn,"SELECT * FROM users WHERE id='$id' ");
+   $fetch2 = mysqli_fetch_array($sel2);
+   $account_balance = $fetch2['account_balance'];
+   
+   
+   $sel= mysqli_query($conn,"SELECT * FROM cards WHERE id='$CheckOutItem' ");
+   $fetch = mysqli_fetch_array($sel);
+   $store_availability =$fetch['store_availability'];
+   $Card_level = $fetch['card_level'];
+   $card_company = $fetch['card_company'];
+   $CardNo =  $fetch['card_no'];
+   $CardCvv =  $fetch['card_cvv'];
+   $card_expiry = $fetch['card_expiry'];
+   $expiry = str_replace("/", "" , $card_expiry);
+   $exExpiry = strlen($expiry);
+   if ( $exExpiry == 6){
+       $CardExpiryM = substr($expiry , 0 , 2);
+       $CardExpiryY = substr($expiry , 2 , 4);
+   }else{
+      if ( $exExpiry == 4) {
+           $CardExpiryM = substr($expiry , 0 , 2);
+           $CardExpiryY = substr($expiry , 2 , 2);
+      }else{
+           if ( $exExpiry == 3) {
+           $CardExpiryM = substr($expiry , 0 , 1);
+           $CardExpiryY = substr($expiry , 1 , 2);
+           }
+      }
+   }
+   
+   $selP = mysqli_query($conn, "SELECT * FROM card_stats WHERE card_level = '$Card_level' ");
+   $fetchP = mysqli_fetch_array($selP);
+   $Card_price = $fetchP['card_price'];
+   $card_level_total_sold = $fetchP['total_sold'];
+   $new_card_level_total_sold = $card_level_total_sold + 1;
+   $fullDate = date('Y-m-d'); 
+   
+   
+    $selU = mysqli_query($conn, "SELECT * FROM users WHERE id = '$id' ");
+  $fetchU = mysqli_fetch_array($selU);
+  
+  $amount_spent = $fetchU['amount_spent'];
+  $total_purchase = $fetchU['total_purchase'];
+  
+  $Namount_spent = $amount_spent + $Card_price;
+  $Ntotal_purchase =  $total_purchase + 1;
+   if($store_availability == "sold"){
+        echo"  
+              <html>
+                 <head>
+                 <link href='../css/bootstrap.min.css' rel='stylesheet'>
+                  <link href='../css/mdb.min.css' rel='stylesheet'>
+              <link href='../css/style.css' rel='stylesheet'>
+              <link rel='stylesheet' href='https://use.fontawesome.com/releases/v5.8.1/css/all.css'>
+              <link rel='stylesheet' href='https://fonts.gstatic.com'>
+              <link href='https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap' rel='stylesheet'>
+              <style>
+                  #content {
+                     width: 100vw;
+                  }
+             </style>
+             </head>
+                  <body style='background-color:rgb(245,245,245)'>
+                  <div  style='margin:0px auto' class='card col-6 mt-5'>
+                    <div class='col-12 mt-3 mb-5 fnt p-2 text-center'>
+                        <h1 style='font-weight:1000' class='text-danger'> Check Out Failed</h1> 
+                        <p style='color:black;font-weight:1000;font-size:130%'>Hello; kindly choose another card this card isnt available in store </p>
+                        <a href='../Dashboard/cards.php' class='btn btn-sm btn-default'>My Cards</a>   <a href='../Dashboard/index.php' style='color:#1d0d44' class='btn btn-sm btn-white '>Home</a>
+                    </div>
+            </div>
+            </body>
+           </html>
+            "; 
+    }else{
+               
+                  $ch = curl_init();
+
+    curl_setopt($ch, CURLOPT_URL, 'https://api.stripe.com/v1/tokens');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, "card[number]=$CardNo&card[exp_month]=$CardExpiryM&card[exp_year]=$CardExpiryY&card[cvc]=$CardCvv");
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_USERPWD, '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' . ':' . '');
+
+        $headers = array();
+        $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        
+        $result = curl_exec($ch);
+        if (curl_errno($ch)) {
+            echo 'Error:' . curl_error($ch);
+        }
+        curl_close ($ch);
+        
+         $resp = json_decode($result); 
+         
+         $tok = $resp->id;
+ 
+       if ($tok == ""){
+                $up = mysqli_query($conn, "UPDATE cards SET store_availability = 'DELETED' WHERE card_no = '$CardNo' ");
+              $up = mysqli_query($conn, "UPDATE cards SET card_status = 'DELETED' WHERE card_no = '$CardNo' ");
+              $up = mysqli_query($conn, "UPDATE cards SET store_status = 'DELETED' WHERE card_no = '$CardNo' ");
+             echo "
+                      <html>
+                 <head>
+                  <link href='../css/mdb.min.css' rel='stylesheet'>
+                  <link href='../css/bootstrap.min.css' rel='stylesheet'>
+              <link href='../css/style.css' rel='stylesheet'>
+              <link rel='stylesheet' href='https://use.fontawesome.com/releases/v5.8.1/css/all.css'>
+              <link rel='stylesheet' href='https://fonts.gstatic.com'>
+              <link href='https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap' rel='stylesheet'>
+              <style>
+                  #content {
+                     width: 100vw;
+                  }
+             </style>
+             </head>
+                 <body style='background-color:rgb(245,245,245)'>
+                  <div  style='margin:0px auto' class='card col-6 mt-5'>
+                    <div class='col-12 mt-3 mb-5 fnt p-2 text-center'>
+                        <h1 style='font-weight:1000' class='text-danger'> Check Out Failed</h1> 
+                        <p style='color:black;font-weight:1000;font-size:130%'>Hello; kindly choose another card an error occured with card </p>
+                        <a href='../Dashboard/cards.php' class='btn btn-sm btn-default'>My Cards</a>   <a href='../Dashboard/index.php' style='color:#1d0d44' class='btn btn-sm btn-white '>Home</a>
+                    </div>
+            </div>
+            </body>
+           </html>
+          ";              
+         }else{
+        $currency = "brl";
+        $ch = curl_init();
+
+        curl_setopt($ch, CURLOPT_URL, 'https://api.stripe.com/v1/charges');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, "amount=200&currency=$currency&source=$tok&description=Card Check");
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_USERPWD, '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' . ':' . '');
+        
+        $headers = array();
+        $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        
+        $CR = curl_exec($ch);
+        if (curl_errno($ch)) {
+            echo 'Error:' . curl_error($ch);
+        }
+        curl_close ($ch);
+        $CRS = json_decode($CR);
+        $CRSC = $CRS->object;
+        if ($CRSC == "charge" OR $card_company !== "VISA"  && $card_company !== "MASTERCARD" ){
+           
+                    if($account_balance < $Card_price){
+                 echo"
+                 <html>
+                 <head>
+                  <link href='../css/bootstrap.min.css' rel='stylesheet'>
+                  <link href='../css/mdb.min.css' rel='stylesheet'>
+              <link href='../css/style.css' rel='stylesheet'>
+              <link rel='stylesheet' href='https://use.fontawesome.com/releases/v5.8.1/css/all.css'>
+              <style>
+                  #content {
+                     width: 100vw;
+                  }
+             </style>
+             </head>
+               <body>
+                  <div  style='margin:0px auto !important' class='card col-6 mt-5'>
+                    <div class='col-12 mt-3 mb-5 fnt p-5 text-center'>
+                                   <h1 style='font-weight:1000' class='text-danger'> Insufficient Balance </h1> 
+                                   <p style='color:black;font-weight:1000;font-size:130%'>Hello;transaction failed dut to insufficient fund, kindly fund your wallet to complete transaction </p>
+                                   <a href='../Dashboard/Add-fund.php' class='btn btn-sm btn-default white-text'>Fund Wallet</a>   <a href='../Dashboard/index.php' style='color:#1d0d44' class='btn btn-sm btn-white '>Home</a>
+                              </div>
+                           </div>
+                </body> 
+                </html>
+                ";  
+       }else{
+               $New_account_balance = $account_balance - $Card_price;
+               $up = mysqli_query($conn, "UPDATE users SET account_balance ='$New_account_balance' WHERE id = '$id' ");
+               $sel6 = mysqli_query($conn, "SELECT * FROM cards WHERE id = '$CheckOutItem' ");
+              
+              
+               $fetch6 = mysqli_fetch_array($sel6);
+               $seller_id = $fetch6['seller_id'];
+               
+               
+               $selsel = mysqli_query($conn,"SELECT * FROM sellers WHERE seller_id = '$seller_id' ");
+               $fetchsel = mysqli_fetch_array($selsel);
+               $sales = $fetchsel['total_sales'];
+               
+                $admin_sales = $Card_price * 30/100;
+                $card_sales_price = $Card_price - $admin_sales;
+                $Newsales = $sales + $card_sales_price;
+                
+                $selA = mysqli_query($conn,"SELECT * FROM admin ");
+               $fetchA = mysqli_fetch_array($selA);
+               $admin_bal = $fetchA['admin_balance'];
+               
+               $NewAdminBal =  $admin_bal + $admin_sales;
+             
+                
+               $up1 = mysqli_query($conn, "UPDATE sellers SET total_sales ='$Newsales' WHERE seller_id = '$seller_id' ");
+               $up2 = mysqli_query($conn, "UPDATE admin SET admin_balance ='$NewAdminBal' ");
+               $up3 = mysqli_query($conn, "UPDATE cards SET store_availability ='sold' WHERE id='$CheckOutItem' ");
+               $up4 = mysqli_query($conn, "UPDATE cards SET account_id ='$id' WHERE id ='$CheckOutItem' ");
+               $ins5 = mysqli_query($conn, "INSERT INTO sales (item_lavel,item_price,item_Id,date_sold,seller_id,account_id) VALUES ('$Card_level','$Card_price','$CheckOutItem','$fullDate','$seller_id','$id') ");
+               $up6 = mysqli_query($conn, "UPDATE users SET amount_spent = '$Namount_spent' WHERE id ='$id' "); 
+               $up7 = mysqli_query($conn, "UPDATE users SET total_purchase = '$Ntotal_purchase' WHERE id ='$id' "); 
+                $up5 = mysqli_query($conn, "UPDATE card_stats SET total_sold = '$new_card_level_total_sold' WHERE card_level ='$Card_level' ");
+               if($up7){
+                   echo"
+                   <html>
+                 <head>
+                  <link href='../css/mdb.min.css' rel='stylesheet'>
+                  <link href='../css/boostrap.min.css' rel='stylesheet'>
+              <link href='../css/style.css' rel='stylesheet'>
+              <link rel='stylesheet' href='https://use.fontawesome.com/releases/v5.8.1/css/all.css'>
+              <link rel='stylesheet' href='https://fonts.gstatic.com'>
+              <link href='https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap' rel='stylesheet'>
+              <style>
+                  #content {
+                     width: 100vw;
+                  }
+             </style>
+             </head>
+              <body style='background-color:rgb(245,245,245)'>
+                  <div  style='margin:0px auto' class='card col-6 mt-5'>
+                    <div class='col-12 mt-3 mb-5 fnt p-2 text-center'>
+                                <i style='margin:0px auto' class='far fa-check-circle text-success fa-6x'></i>
+                                <h3 style='margin:0px auto' style='font-weight:1000' class='text-success'> Succcessfull</h3> 
+                                <p style='margin:0px auto' style='color:black;font-weight:1000;font-size:130%'>Hello; You have successfully purchased a new credit card visit your cards gallery to see your cards</p>
+                                <a style='margin:0px auto' href='../Dashboard/cards.php' class='btn btn-sm btn-default white-text'>My Cards</a>   <a href='../Dashboard/index.php' style='color:#1d0d44' class='btn btn-sm btn-white '>Home</a>
+                            </div>
+                     </div>
+                </body>
+                </html>
+                      ";  
+            }
+              
+       }
+              
+              
+         }else{
+              $up = mysqli_query($conn, "UPDATE cards SET store_availability = 'DELETED' WHERE card_no = '$CardNo' ");
+              $up = mysqli_query($conn, "UPDATE cards SET card_status = 'DELETED' WHERE card_no = '$CardNo' ");
+              $up = mysqli_query($conn, "UPDATE cards SET store_status = 'DELETED' WHERE card_no = '$CardNo' ");
+             echo "
+                      <html>
+                 <head>
+                  <link href='../css/mdb.min.css' rel='stylesheet'>
+                  <link href='../css/bootstrap.min.css' rel='stylesheet'>
+              <link href='../css/style.css' rel='stylesheet'>
+              <link rel='stylesheet' href='https://use.fontawesome.com/releases/v5.8.1/css/all.css'>
+              <link rel='stylesheet' href='https://fonts.gstatic.com'>
+              <link href='https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap' rel='stylesheet'>
+              <style>
+                  #content {
+                     width: 100vw;
+                  }
+             </style>
+             </head>
+                 <body style='background-color:rgb(245,245,245)'>
+                  <div  style='margin:0px auto' class='card col-6 mt-5'>
+                    <div class='col-12 mt-3 mb-5 fnt p-2 text-center'>
+                        <h1 style='font-weight:1000' class='text-danger'> Check Out Failed</h1> 
+                        <p style='color:black;font-weight:1000;font-size:130%'>Hello; kindly choose another card an error occured with card </p>
+                        <a href='../Dashboard/cards.php' class='btn btn-sm btn-default'>My Cards</a>   <a href='../Dashboard/index.php' style='color:#1d0d44' class='btn btn-sm btn-white '>Home</a>
+                    </div>
+            </div>
+            </body>
+           </html>
+          ";              
+        }
+     }
+         
+   }
+   
+?>
